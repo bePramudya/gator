@@ -1,10 +1,14 @@
 package main
 
 import (
+	"database/sql"
 	"fmt"
 	"os"
 
 	"github.com/bePramudya/gator/internal/config"
+	"github.com/bePramudya/gator/internal/database"
+
+	_ "github.com/lib/pq"
 )
 
 func main() {
@@ -14,8 +18,12 @@ func main() {
 		os.Exit(1)
 	}
 
+	db, err := sql.Open("postgres", cfg.DbUrl)
+	dbQueries := database.New(db)
+
 	appState := state{
-		Config: &cfg,
+		db:  dbQueries,
+		cfg: &cfg,
 	}
 
 	var appCommands = commands{
@@ -23,6 +31,9 @@ func main() {
 	}
 
 	appCommands.register("login", handlerLogin)
+	appCommands.register("register", handlerRegister)
+	appCommands.register("reset", handlerReset)
+	appCommands.register("users", handlerGetUsers)
 
 	if len(os.Args) < 2 {
 		fmt.Println("no command provided")
