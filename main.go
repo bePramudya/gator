@@ -14,16 +14,29 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = cfg.SetUser("bagus"); err != nil {
-		fmt.Print(err)
+	appState := state{
+		Config: &cfg,
+	}
+
+	var appCommands = commands{
+		handlers: map[string]func(*state, command) error{},
+	}
+
+	appCommands.register("login", handlerLogin)
+
+	if len(os.Args) < 2 {
+		fmt.Println("no command provided")
 		os.Exit(1)
 	}
 
-	cfg, err = config.Read()
+	cmd := command{
+		name: os.Args[1],
+		args: os.Args[2:],
+	}
+
+	err = appCommands.run(&appState, cmd)
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
-
-	fmt.Print(cfg)
 }
