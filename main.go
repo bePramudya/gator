@@ -35,6 +35,8 @@ func main() {
 	appCommands.register("reset", handlerReset)
 	appCommands.register("users", handlerGetUsers)
 	appCommands.register("agg", handlerAggregate)
+	appCommands.register("addfeed", handlerAddFeed)
+	appCommands.register("feeds", handlerListFeeds)
 
 	if len(os.Args) < 2 {
 		fmt.Println("no command provided")
