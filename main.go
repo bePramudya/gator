@@ -35,10 +35,10 @@ func main() {
 	appCommands.register("reset", handlerReset)
 	appCommands.register("users", handlerGetUsers)
 	appCommands.register("agg", handlerAggregate)
-	appCommands.register("addfeed", handlerAddFeed)
+	appCommands.register("addfeed", middlewareLoggedIn(handlerAddFeed))
 	appCommands.register("feeds", handlerListFeeds)
-	appCommands.register("follow", handlerFollow)
-	appCommands.register("following", handlerFollowing)
+	appCommands.register("follow", middlewareLoggedIn(handlerFollow))
+	appCommands.register("following", middlewareLoggedIn(handlerFollowing))
 
 	if len(os.Args) < 2 {
 		fmt.Println("no command provided")
