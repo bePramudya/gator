@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"encoding/xml"
 	"fmt"
 	"html"
@@ -66,13 +67,21 @@ func fetchFeed(ctx context.Context, feedURL string) (*RSSFeed, error) {
 }
 
 func handlerAggregate(s *state, cmd command) error {
-	feed, err := fetchFeed(context.Background(), "https://www.wagslane.dev/index.xml")
+	if len(cmd.args) != 1 {
+		return fmt.Errorf("invalid time: agg <time>")
+	}
+
+	fmt.Printf("Collecting feeds every %v \n", cmd.args[0])
+
+	timeBetweenRequests, err := time.ParseDuration(cmd.args[0])
 	if err != nil {
 		return err
 	}
 
-	fmt.Println(feed)
-	return nil
+	ticker := time.NewTicker(timeBetweenRequests)
+	for ; ; <-ticker.C {
+		scrapeFeeds(s)
+	}
 }
 
 func handlerAddFeed(s *state, cmd command, user database.User) error {
@@ -181,6 +190,38 @@ func handlerUnfollow(s *state, cmd command, user database.User) error {
 
 	if err = s.db.DeleteFeedFollow(context.Background(), args); err != nil {
 		return err
+	}
+
+	return nil
+}
+
+func scrapeFeeds(s *state) error {
+	feed, err := s.db.GetNextFeedToFetch(context.Background())
+	if err != nil {
+		return err
+	}
+
+	markFeedArgs := database.MarkFeedFetchedParams{
+		LastFetchedAt: sql.NullTime{
+			Time:  time.Now(),
+			Valid: true,
+		},
+		UpdatedAt: time.Now(),
+		ID:        feed.ID,
+	}
+
+	feed, err = s.db.MarkFeedFetched(context.Background(), markFeedArgs)
+	if err != nil {
+		return err
+	}
+
+	rssFeed, err := fetchFeed(context.Background(), feed.Url)
+	if err != nil {
+		return err
+	}
+
+	for _, feed := range rssFeed.Channel.Item {
+		fmt.Printf(" * Title: %v\n", feed.Title)
 	}
 
 	return nil

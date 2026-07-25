@@ -13,3 +13,14 @@ SELECT feeds.*, users.name AS user_name FROM feeds
 LEFT JOIN users
     ON feeds.user_id = users.id
 WHERE feeds.url = $1;
+
+-- name: MarkFeedFetched :one
+UPDATE feeds
+SET last_fetched_at = $1, updated_at = $2
+WHERE feeds.id = $3
+RETURNING *;
+
+-- name: GetNextFeedToFetch :one
+SELECT * FROM feeds
+ORDER BY last_fetched_at ASC NULLS FIRST
+LIMIT 1;
