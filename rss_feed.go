@@ -86,7 +86,7 @@ func handlerAddFeed(s *state, cmd command) error {
 		return err
 	}
 
-	args := database.CreateFeedParams{
+	createFeedArgs := database.CreateFeedParams{
 		ID:        uuid.New(),
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
@@ -95,9 +95,22 @@ func handlerAddFeed(s *state, cmd command) error {
 		UserID:    user.ID,
 	}
 
-	feed, err := s.db.CreateFeed(context.Background(), args)
+	feed, err := s.db.CreateFeed(context.Background(), createFeedArgs)
 	if err != nil {
 		fmt.Println("error creating feed")
+		return err
+	}
+
+	createFeedFollowArgs := database.CreateFeedFollowParams{
+		ID:        uuid.New(),
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+		UserID:    feed.UserID,
+		FeedID:    feed.ID,
+	}
+
+	_, err = s.db.CreateFeedFollow(context.Background(), createFeedFollowArgs)
+	if err != nil {
 		return err
 	}
 
@@ -115,6 +128,57 @@ func handlerListFeeds(s *state, cmd command) error {
 		fmt.Printf("name: %v\n", feed.Name)
 		fmt.Printf(" * url: %v\n", feed.Url)
 		fmt.Printf(" * creator: %v\n", feed.UserName.String)
+	}
+
+	return nil
+}
+
+func handlerFollow(s *state, cmd command) error {
+	if len(cmd.args) != 1 {
+		return fmt.Errorf("provide one url: follow <url>")
+	}
+
+	feed, err := s.db.GetFeed(context.Background(), cmd.args[0])
+	if err != nil {
+		return err
+	}
+
+	user, err := s.db.GetUser(context.Background(), s.cfg.CurrentUserName)
+	if err != nil {
+		return err
+	}
+
+	args := database.CreateFeedFollowParams{
+		ID:        uuid.New(),
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+		UserID:    user.ID,
+		FeedID:    feed.ID,
+	}
+
+	feedFollow, err := s.db.CreateFeedFollow(context.Background(), args)
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("Feed: %v", feedFollow.FeedName)
+	fmt.Printf("Name: %v", feedFollow.UserName)
+	return nil
+}
+
+func handlerFollowing(s *state, cmd command) error {
+	user, err := s.db.GetUser(context.Background(), s.cfg.CurrentUserName)
+	if err != nil {
+		return err
+	}
+
+	following, err := s.db.GetFeedFollowsForUser(context.Background(), user.ID)
+	if err != nil {
+		return err
+	}
+
+	for _, follow := range following {
+		fmt.Println(follow.FeedName)
 	}
 
 	return nil

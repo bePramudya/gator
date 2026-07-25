@@ -37,6 +37,8 @@ func main() {
 	appCommands.register("agg", handlerAggregate)
 	appCommands.register("addfeed", handlerAddFeed)
 	appCommands.register("feeds", handlerListFeeds)
+	appCommands.register("follow", handlerFollow)
+	appCommands.register("following", handlerFollowing)
 
 	if len(os.Args) < 2 {
 		fmt.Println("no command provided")
