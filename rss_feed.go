@@ -8,6 +8,8 @@ import (
 	"html"
 	"io"
 	"net/http"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/bePramudya/gator/internal/database"
@@ -80,7 +82,9 @@ func handlerAggregate(s *state, cmd command) error {
 
 	ticker := time.NewTicker(timeBetweenRequests)
 	for ; ; <-ticker.C {
+		fmt.Println("fetching batch...")
 		scrapeFeeds(s)
+		fmt.Println("Finished fetching")
 	}
 }
 
@@ -195,6 +199,32 @@ func handlerUnfollow(s *state, cmd command, user database.User) error {
 	return nil
 }
 
+func handlerBrowse(s *state, cmd command) error {
+	var limit int32 = 2
+	if len(cmd.args) == 1 {
+		lmt, err := strconv.Atoi(cmd.args[0])
+		if err != nil {
+			return err
+		}
+
+		limit = int32(lmt)
+	}
+
+	posts, err := s.db.GetPostForUser(context.Background(), limit)
+	if err != nil {
+		return err
+	}
+
+	for _, post := range posts {
+		fmt.Printf("# %v\n", post.Title)
+		fmt.Printf(" * URL: %v\n", post.Url)
+		fmt.Printf(" * Description: %v\n", post.Description)
+		fmt.Printf(" * Published Date: %v\n\n\n", post.PublishedAt)
+	}
+
+	return nil
+}
+
 func scrapeFeeds(s *state) error {
 	feed, err := s.db.GetNextFeedToFetch(context.Background())
 	if err != nil {
@@ -220,8 +250,37 @@ func scrapeFeeds(s *state) error {
 		return err
 	}
 
-	for _, feed := range rssFeed.Channel.Item {
-		fmt.Printf(" * Title: %v\n", feed.Title)
+	for _, rf := range rssFeed.Channel.Item {
+		publishedAt := sql.NullTime{}
+		parsed, err := time.Parse(time.RFC1123Z, rf.PubDate)
+		if err == nil {
+			publishedAt = sql.NullTime{
+				Time:  parsed,
+				Valid: true,
+			}
+		}
+
+		createPostArgs := database.CreatePostParams{
+			ID:          uuid.New(),
+			CreatedAt:   time.Now(),
+			UpdatedAt:   time.Now(),
+			Title:       rf.Title,
+			Url:         rf.Link,
+			Description: rf.Description,
+			PublishedAt: publishedAt,
+			FeedID:      feed.ID,
+		}
+
+		_, err = s.db.CreatePost(context.Background(), createPostArgs)
+		if err != nil {
+			if strings.Contains(err.Error(), "unique") {
+				continue
+			} else {
+				return err
+			}
+		}
+
+		fmt.Println(rf.Title)
 	}
 
 	return nil
